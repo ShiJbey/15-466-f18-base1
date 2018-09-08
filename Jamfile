@@ -69,6 +69,7 @@ NAMES =
 	MeshBuffer
 	draw_text
 	Sound
+	NowYouHearMeMode
 	;
 
 if $(OS) = NT {

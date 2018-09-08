@@ -1,11 +1,12 @@
 #include "WalkMesh.hpp"
+#include <vector>
 
-WalkMesh(std::vector< glm::vec3 > const &vertices_, std::vector< glm::uvec3 > const &triangles_)
+WalkMesh::WalkMesh(std::vector< glm::vec3 > const &vertices_, std::vector< glm::uvec3 > const &triangles_)
 	: vertices(vertices_), triangles(triangles_) {
 	//TODO: construct next_vertex map
 }
 
-WalkPoint WalkMesh::start(glm::vec3 const &world_point) const {
+WalkMesh::WalkPoint WalkMesh::start(glm::vec3 const &world_point) const {
 	WalkPoint closest;
 	//TODO: iterate through triangles
 	//TODO: for each triangle, find closest point on triangle to world_point

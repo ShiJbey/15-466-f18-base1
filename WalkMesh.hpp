@@ -85,3 +85,4 @@ Game::update(float elapsed) {
 	player_right = glm::cross(player_forward, player_up);
 
 }
+*/

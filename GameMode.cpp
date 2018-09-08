@@ -1,6 +1,6 @@
 #include "GameMode.hpp"
 #include "CratesMode.hpp"
-
+#include "NowYouHearMeMode.hpp"
 #include "MenuMode.hpp"
 #include "Load.hpp"
 #include "MeshBuffer.hpp"
@@ -260,6 +260,9 @@ void GameMode::show_pause_menu() {
 	});
 	menu->choices.emplace_back("CRATES", [game](){
 		Mode::set_current(std::make_shared< CratesMode >());
+	});
+	menu->choices.emplace_back("NOW YOU HEAR ME", [game](){
+		Mode::set_current(std::make_shared< NowYouHearMe::NowYouHearMeMode >());
 	});
 	menu->choices.emplace_back("QUIT", [](){
 		Mode::set_current(nullptr);

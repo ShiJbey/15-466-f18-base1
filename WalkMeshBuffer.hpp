@@ -14,5 +14,5 @@ struct WalkMeshBuffer {
 
     WalkMeshBuffer(std::string const &filename);
 
-    const WalkMesh &lookup(std::string const &name) const;
+    const WalkMesh *lookup(std::string const &name) const;
 };

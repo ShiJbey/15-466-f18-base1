@@ -108,10 +108,10 @@ WalkMeshBuffer::WalkMeshBuffer(std::string const &filename) {
 	}
 }
 
-const WalkMesh &WalkMeshBuffer::lookup(std::string const &name) const {
+const WalkMesh *WalkMeshBuffer::lookup(std::string const &name) const {
     auto f = meshes.find(name);
 	if (f == meshes.end()) {
 		throw std::runtime_error("Looking up mesh '" + name + "' that doesn't exist.");
 	}
-	return f->second;
+	return &(f->second);
 }

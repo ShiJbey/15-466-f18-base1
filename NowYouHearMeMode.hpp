@@ -58,7 +58,7 @@ namespace NowYouHearMe
         std::shared_ptr< Sound::PlayingSample > monster_growl;
 
 
-        WalkMesh *walk_mesh = nullptr;
+        const WalkMesh *walk_mesh = nullptr;
         WalkMesh::WalkPoint player_walk_point;
         WalkMesh::WalkPoint monster_walk_point;
     };

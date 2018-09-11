@@ -76,7 +76,7 @@ namespace NowYouHearMe
 
         printf("Number of named transforms: %zd\n", name_to_trans.size());
         
-        WalkMesh const &walk_mesh = walk_meshes->lookup("WalkMesh");
+        walk_mesh = walk_meshes->lookup("WalkMesh");
 
         auto it = name_to_trans.find("Walls");
         if (it != name_to_trans.end()) {
@@ -104,8 +104,8 @@ namespace NowYouHearMe
             player = scene.get_object("Player");
 
             printf("Adjusting Player Position for Walk mesh\n");
-            player_walk_point = walk_mesh.start(player->transform->position);
-            glm::vec3 world_point = walk_mesh.world_point(player_walk_point);
+            player_walk_point = walk_mesh->start(player->transform->position);
+            glm::vec3 world_point = walk_mesh->world_point(player_walk_point);
             // Adjust the player's position
             printf("Originally Player at: <%f, %f, %f>\n", player->transform->position.x, player->transform->position.y, player->transform->position.z);
             printf("Walk Places Player at: <%f, %f, %f>\n", world_point.x, world_point.y, world_point.z);
@@ -120,8 +120,8 @@ namespace NowYouHearMe
             attach_object(it->second, "Monster");
             monster = scene.get_object("Monster");
 
-            monster_walk_point = walk_mesh.start(monster->transform->position);
-            glm::vec3 world_point = walk_mesh.world_point(monster_walk_point);
+            monster_walk_point = walk_mesh->start(monster->transform->position);
+            glm::vec3 world_point = walk_mesh->world_point(monster_walk_point);
             monster->transform->position.x = world_point.x;
             monster->transform->position.y = world_point.y;
             monster->transform->position.z = world_point.z + 1.0f; // Keep the player 2 units above the ground
@@ -202,29 +202,50 @@ namespace NowYouHearMe
     {
         // Check end-of-game conditions
         {
+            glm::vec3 distance_to_monster = player->transform->position - monster->transform->position;
 
+            if(distance_to_monster.length() < 1.0f) {
+                printf("GAME OVER\n");
+            }
         }
 
         glm::mat3 directions = glm::mat3_cast(camera->transform->rotation);
+
+        /*
         float amt = 5.0f * elapsed;
-        
         if (controls.right) player->transform->position += amt * directions[0];
 	    if (controls.left) player->transform->position -= amt * directions[0];
 	    if (controls.backward) player->transform->position += amt * directions[2];
 	    if (controls.forward) player->transform->position -= amt * directions[2];
-
-        /*
-        glm::vec3 step;
-        if (controls.right) step = amt * directions[0];
-        if (controls.left) step = -amt * directions[0];
-        if (controls.backward) step = amt * directions[2];
-        if (controls.forward) step = -amt * directions[2];
         */
+
+        float move_speed = 1.0f;
+
+        glm::vec3 step(0.0f);
+        if (controls.right)
+            step = directions[0];
+        if (controls.left) 
+            step = -1.0f * directions[0];
+        if (controls.backward)
+            step = directions[2];
+        if (controls.forward)
+            step = -1.0f * directions[2];
+
+        step = step * move_speed * elapsed;
         
+        if (step.length() > 0) {
 
-        //walk_mesh->walk(player_walk_point, step);
+            //player->transform->position += step;
+            //printf("Player Wants to move to: <%f, %f, %f>\n", player->transform->position.x, player->transform->position.y, player->transform->position.z);
+            walk_mesh->walk(player_walk_point, step);
+            glm::vec3 world_point = walk_mesh->world_point(player_walk_point);
+            printf("Walk Mesh Places at Player at: <%f, %f, %f>\n", world_point.x, world_point.y, world_point.z);
 
-       //camera->transform->position = walk_mesh->world_point(player_walk_point);
+            player->transform->position.x = world_point.x;
+            player->transform->position.y = world_point.y;
+            player->transform->position.z = world_point.z + 1.0f; // Keep the player 2 units above the ground
+
+        }
 
         // Update the monster's position and growl_timer
         {

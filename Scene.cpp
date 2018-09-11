@@ -322,18 +322,6 @@ std::unordered_map<std::string, Scene::Transform*> Scene::load(std::string const
 	auto valid_range = [&strings](uint32_t name_begin, uint32_t name_end) {
 		return name_begin <= name_end && name_end <= strings.size();
 	};
-
-	// Returns the index of the transform thar mathces this mesh
-	auto get_matching_transform_index = [&transforms](const BlenderMesh& mesh) {
-		for (uint32_t i = 0; i < transforms.size(); i++) {
-			if (transforms[i].name_start == mesh.name_start && 
-				transforms[i].name_end == mesh.name_end) {
-					return (int)i;
-			}
-		}
-		return -1;
-	};
-
 	
 
 	std::unordered_map<std::string, Transform*> name_to_trans;
@@ -383,7 +371,7 @@ std::unordered_map<std::string, Scene::Transform*> Scene::load(std::string const
 			transform->rotation = btrans.rotation;
 			transform->scale = btrans.scale;
 			// Add the camera to the scene since we dont attach objects
-			Camera *camera = new_camera(transform);
+			new_camera(transform);
 			//camera->fovy = cameras[i].fov_scale;
 
 
@@ -431,18 +419,18 @@ std::unordered_map<std::string, Scene::Transform*> Scene::load(std::string const
 			auto it = ref_to_name.find(transforms[i].parent);
 			if (it != ref_to_name.end()) {
 				std::string parent_name = it->second;
-				auto it = name_to_trans.find(parent_name);
-				if (it != name_to_trans.end()) {
-					parent_trans = it->second;
+				auto it2 = name_to_trans.find(parent_name);
+				if (it2 != name_to_trans.end()) {
+					parent_trans = it2->second;
 				}
 			}
 
 			// Get the real transform for this simple transform
 			Transform *my_trans = nullptr;
 			std::string name(&strings[0] + transforms[i].name_start, &strings[0] + transforms[i].name_end);
-			auto it2 = name_to_trans.find(name);
-			if (it2 !=  name_to_trans.end()) {
-				my_trans = it2->second;
+			auto it3 = name_to_trans.find(name);
+			if (it3 !=  name_to_trans.end()) {
+				my_trans = it3->second;
 			}
 
 			// Set the parent to the transform

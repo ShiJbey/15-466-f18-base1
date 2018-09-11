@@ -214,7 +214,7 @@ std::unordered_map<std::string, Scene::Transform*> Scene::load(std::string const
 	// Open the file
 	std::ifstream file(filename, std::ios::binary);
 
-	struct SimpleTransform {
+	struct BlenderTransform {
 		int parent;
 		uint32_t name_start;
 		uint32_t name_end;
@@ -222,21 +222,21 @@ std::unordered_map<std::string, Scene::Transform*> Scene::load(std::string const
 		glm::quat rotation;
 		glm::vec3 scale;
 	};
-	static_assert(sizeof(SimpleTransform) == 4+4+4+(4*3)+(4*4)+(4*3), "Simple transform should be packed");
+	static_assert(sizeof(BlenderTransform) == 4+4+4+(4*3)+(4*4)+(4*3), "Simple transform should be packed");
 	
 	// All the transforms exported by the scene
-	std::vector< SimpleTransform > transforms;
+	std::vector< BlenderTransform > transforms;
 
-	struct SimpleMesh {
+	struct BlenderMesh {
 		int hierarchy_ref;
 		uint32_t name_start;
 		uint32_t name_end;
 	};
 
-	static_assert(sizeof(SimpleMesh) == 4+4+4, "Simple mesh should be packed");
-	std::vector< SimpleMesh > meshes;
+	static_assert(sizeof(BlenderMesh) == 4+4+4, "Simple mesh should be packed");
+	std::vector< BlenderMesh > meshes;
 
-	struct SimpleCamera {
+	struct BlenderCamera {
 		int hierarchy_ref;
 		char type[4] = {'\0', '\0', '\0', '\0'};
 		float fov_scale;
@@ -244,10 +244,10 @@ std::unordered_map<std::string, Scene::Transform*> Scene::load(std::string const
 		float clip_end;
 	};
 
-	static_assert(sizeof(SimpleCamera) == 4+(1*4)+4+4+4, "Simple camera should be packed");
-	std::vector< SimpleCamera > cameras;
+	static_assert(sizeof(BlenderCamera) == 4+(1*4)+4+4+4, "Simple camera should be packed");
+	std::vector< BlenderCamera > cameras;
 
-	struct Lamp {
+	struct BlenderLamp {
 		int hierarchy_ref;
 		char type;
 		char r;
@@ -257,23 +257,60 @@ std::unordered_map<std::string, Scene::Transform*> Scene::load(std::string const
 		float distance;
 		float fov;
 	};
-	static_assert(sizeof(Lamp) == 4+1+1+1+1+4+4+4, "Lamp should be packed");
-	
-	
+	static_assert(sizeof(BlenderLamp) == 4+1+1+1+1+4+4+4, "Lamp should be packed");
+	std::vector<BlenderLamp> lamps;
+
 	std::vector< char > strings;
 	read_chunk(file, "str0", &strings);
 
-	std::cout << filename.substr(filename.size() - 6)  <<  std::endl;
+	auto print_blender_transform = [](BlenderTransform trans) {
+		printf("POS: x: %f, y: %f, z: %f\nROT: x: %f, y: %f, z: %f, w: %f\nSCL: x: %f, y: %f, z: %f\n",
+		trans.position.x, trans.position.y, trans.position.z,
+		trans.rotation.x, trans.rotation.y, trans.rotation.z, trans.rotation.w, 
+		trans.scale.x, trans.scale.y, trans.scale.z
+		);
+	};
+
+	auto get_blendermesh_name = [&strings](BlenderMesh mesh) {
+		std::string name(&strings[0] + mesh.name_start, &strings[0] + mesh.name_end);
+		return name;
+	};
 
 	if (filename.size() >= 6 && filename.substr(filename.size() - 6) == ".scene") {
 
 		read_chunk(file, "xfh0", &transforms);
+		printf("%zd transforms were imported from blender\n", transforms.size());
+		
+		
+
+		printf("All Blender Transforms:\n");
+		for (uint32_t i = 0; i < transforms.size(); i++) {
+			printf("Transform: %d\n", i);
+			print_blender_transform(transforms[i]);
+		}
+		
+
 
 		read_chunk(file, "msh0", &meshes);
 
+		printf("All Meshes:\n");
+		for (uint32_t i = 0; i < meshes.size(); i++) {
+			printf("Name: %s - Ref: %d\n", get_blendermesh_name(meshes[i]).c_str(), meshes[i].hierarchy_ref);
+		}
+
+
 		read_chunk(file, "cam0", &cameras);
 
-		
+		printf("Cameras: \n");
+		for (uint32_t i = 0; i < cameras.size(); i++) {
+			printf("Type: %.*s - Ref: %d\n", 4, cameras[i].type, cameras[i].hierarchy_ref);
+		}
+
+		read_chunk(file, "lmp0", &lamps);
+		printf("Lamps: \n");
+		for (uint32_t i = 0; i < lamps.size(); i++) {
+			printf("Type: %c - Ref: %d\n", lamps[i].type, lamps[i].hierarchy_ref);
+		}
 
 	} else {
 		throw std::runtime_error("Unknown file type '" + filename + "'");
@@ -287,7 +324,7 @@ std::unordered_map<std::string, Scene::Transform*> Scene::load(std::string const
 	};
 
 	// Returns the index of the transform thar mathces this mesh
-	auto get_matching_transform_index = [&transforms](const SimpleMesh& mesh) {
+	auto get_matching_transform_index = [&transforms](const BlenderMesh& mesh) {
 		for (uint32_t i = 0; i < transforms.size(); i++) {
 			if (transforms[i].name_start == mesh.name_start && 
 				transforms[i].name_end == mesh.name_end) {
@@ -309,19 +346,21 @@ std::unordered_map<std::string, Scene::Transform*> Scene::load(std::string const
 		// Fill the two maps created above
 		for (uint32_t i = 0; i < meshes.size(); i++) {
 			if (valid_range(meshes[i].name_start, meshes[i].name_end)) {
-				// Name is valid look for the matching transform
-				SimpleTransform match = transforms[get_matching_transform_index(meshes[i])];
-				// Push new values on to the maps
-				std::string name(&strings[0] + meshes[i].name_start, &strings[0] + meshes[i].name_end);
+				BlenderTransform btrans = transforms[meshes[i].hierarchy_ref];
+				printf("Found Transform for mesh...:\n");
+				print_blender_transform(btrans);
 
+				std::string name = get_blendermesh_name(meshes[i]);
 				// Create new transform
 				transform = new_transform();
-				transform->name = name;
-				transform->position = match.position;
-				transform->rotation = match.rotation;
-				transform->scale = match.scale;
 
-				bool inserted = name_to_trans.insert(std::make_pair(name, transform)).second;
+				transform->name = name;
+				transform->position = btrans.position;
+				transform->rotation = btrans.rotation;
+				transform->scale = btrans.scale;
+
+				bool inserted = false;
+				inserted = name_to_trans.insert(std::make_pair(name, transform)).second;
 				if (!inserted) {
 					std::cerr << "WARNING: mesh name '" + name + "' in filename '" + filename + "' collides with existing mesh." << std::endl;
 				}
@@ -332,6 +371,58 @@ std::unordered_map<std::string, Scene::Transform*> Scene::load(std::string const
 				}
 			}
 		}
+
+		// Do the same for the cameras
+		for (uint32_t i = 0; i < cameras.size(); i++) {
+			std::string name("Camera-" + i);
+			BlenderTransform btrans = transforms[cameras[i].hierarchy_ref];
+			// Create a new scene transform
+			transform = new_transform();
+			transform->name = name;
+			transform->position = btrans.position;
+			transform->rotation = btrans.rotation;
+			transform->scale = btrans.scale;
+			// Add the camera to the scene since we dont attach objects
+			Camera *camera = new_camera(transform);
+			//camera->fovy = cameras[i].fov_scale;
+
+
+			bool inserted = false;
+			inserted = name_to_trans.insert(std::make_pair(name, transform)).second;
+			if (!inserted) {
+				std::cerr << "WARNING: Camera name '" + name + "' collides with existing camera." << std::endl;
+			}
+
+			inserted = ref_to_name.insert(std::make_pair(cameras[i].hierarchy_ref, name)).second;
+			if (!inserted) {
+				std::cerr << "WARNING: Camera hierarchy reference number \'" << (int)(meshes[i].hierarchy_ref)  << "\' in filename \'" << filename << "\' collides with existing reference." << std::endl;
+			}
+		}
+
+		// Do the same for lamps
+		for (uint32_t i = 0; i < lamps.size(); i++) {
+			std::string name("Lamp-" + i);
+			BlenderTransform btrans = transforms[lamps[i].hierarchy_ref];
+			// Create a new scene transform
+			transform = new_transform();
+			transform->name = name;
+			transform->position = btrans.position;
+			transform->rotation = btrans.rotation;
+			transform->scale = btrans.scale;
+
+
+			bool inserted = false;
+			inserted = name_to_trans.insert(std::make_pair(name, transform)).second;
+			if (!inserted) {
+				std::cerr << "WARNING: Lamp name '" + name + "' collides with existing lamp." << std::endl;
+			}
+
+			inserted = ref_to_name.insert(std::make_pair(lamps[i].hierarchy_ref, name)).second;
+			if (!inserted) {
+				std::cerr << "WARNING: Lamp hierarchy reference number \'" << (int)(lamps[i].hierarchy_ref)  << "\' in filename \'" << filename << "\' collides with existing reference." << std::endl;
+			}
+		}
+
 
 		// Loop through the transforms and fix parents for meshes
 		for (uint32_t i = 0; i < transforms.size(); i++) {
@@ -360,12 +451,6 @@ std::unordered_map<std::string, Scene::Transform*> Scene::load(std::string const
 			}
 		}
 	}
-
-	/*
-	if (file.peek() != EOF) {
-		std::cerr << "WARNING: trailing data in mesh file '" << filename << "'" << std::endl;
-	}
-	*/
 	
 	return name_to_trans;
 }
@@ -382,10 +467,10 @@ Scene::~Scene() {
 	}
 }
 
-Scene::Transform* Scene::get_object(std::string const &name) {
+Scene::Object *Scene::get_object(std::string const &name) {
 	for (Scene::Object *object = first_object; object != nullptr; object = object->alloc_next) {
 		if (object->transform->name == name) {
-			return object->transform;
+			return object;
 		}
 	}
 	return nullptr;

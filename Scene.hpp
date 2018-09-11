@@ -123,7 +123,7 @@ struct Scene {
 	//Delete a camera:
 	void delete_camera(Camera *);
 
-	Transform* get_object(std::string const &name);
+	Object *get_object(std::string const &name);
 
 	//used to manage allocated objects:
 	Transform *first_transform = nullptr;

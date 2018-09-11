@@ -53,10 +53,13 @@ namespace NowYouHearMe
         Scene::Camera *camera = nullptr;
 
         Scene::Object *monster = nullptr;
+        Scene::Object *player = nullptr;
 
         std::shared_ptr< Sound::PlayingSample > monster_growl;
 
+
         WalkMesh *walk_mesh = nullptr;
         WalkMesh::WalkPoint player_walk_point;
+        WalkMesh::WalkPoint monster_walk_point;
     };
 };

@@ -74,58 +74,65 @@ namespace NowYouHearMe
 
         std::unordered_map<std::string, Scene::Transform*> name_to_trans = scene.load(data_path("nyhm.scene"));
 
-        printf("Number of named transforms: %d\n", name_to_trans.size());
+        printf("Number of named transforms: %zd\n", name_to_trans.size());
         
-
         WalkMesh const &walk_mesh = walk_meshes->lookup("WalkMesh");
-
-        std::cout << "pizza" << std::endl;
 
         auto it = name_to_trans.find("Walls");
         if (it != name_to_trans.end()) {
-            std::cout << "pinapple 3" << std::endl;
-            it->second->scale = glm::vec3(1.0f);
+            std::cout << "Wall Transform:" << std::endl;
             print_transform(it->second);
-            // Create and object for the walls
-            //it->second->position = glm::vec3(0.0f);
-            Scene::Transform *transform1 = scene.new_transform();
-            attach_object(transform1, "Walls");
+            attach_object(it->second, "Walls");
         }
 
         
-
-        // Do the same with the floor
         it = name_to_trans.find("Floor");
         if (it != name_to_trans.end()) {
-            std::cout << "anchovies 5" << std::endl;
+            std::cout << "Floor Transform" << std::endl;
             print_transform(it->second);
-            // Create and object for the walls
-            it->second->position = glm::vec3(0.0f);
-            Scene::Transform *transform2 = scene.new_transform();
-            attach_object(transform2, "Floor");
+            attach_object(it->second, "Floor");         
         }
 
         
 
         // Find the position of the player and place the camera there
-        it = name_to_trans.find("PlayerMesh");
+        it = name_to_trans.find("Player");
         if (it != name_to_trans.end()) {
-            std::cout<< "Added the camera" << std::endl;
-            Scene::Transform *transform = scene.new_transform();
-		transform->position = glm::vec3(0.0f, 0.0f, 1.0f);
-        player_walk_point = walk_mesh.start(transform->position);
-		//Cameras look along -z, so rotate view to look at origin:
-		transform->rotation = glm::angleAxis(glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-		camera = scene.new_camera(transform);
-    //camera->transform->position = walk_mesh.world_point(player_walk_point);
-            //print_transform(it->second);
-            //it->second->position = glm::vec3(0.0f);
-            //camera = scene.new_camera(it->second);
-            //player_walk_point = walk_mesh.start(glm::vec3(0.0f));
-            //camera->transform->position = walk_mesh.world_point(player_walk_point);
-            //camera->transform->rotation = glm::angleAxis(glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+            std::cout<< "Player Transform" << std::endl;
+            print_transform(it->second);
+            attach_object(it->second, "Player");
+            player = scene.get_object("Player");
+
+            printf("Adjusting Player Position for Walk mesh\n");
+            player_walk_point = walk_mesh.start(player->transform->position);
+            glm::vec3 world_point = walk_mesh.world_point(player_walk_point);
+            // Adjust the player's position
+            printf("Originally Player at: <%f, %f, %f>\n", player->transform->position.x, player->transform->position.y, player->transform->position.z);
+            printf("Walk Places Player at: <%f, %f, %f>\n", world_point.x, world_point.y, world_point.z);
+            player->transform->position.x = world_point.x;
+            player->transform->position.y = world_point.y;
+            player->transform->position.z = world_point.z + 1.0f; // Keep the player 2 units above the ground
         }
 
+        
+        it = name_to_trans.find("Monster");
+        if (it != name_to_trans.end()) {
+            attach_object(it->second, "Monster");
+            monster = scene.get_object("Monster");
+
+            monster_walk_point = walk_mesh.start(monster->transform->position);
+            glm::vec3 world_point = walk_mesh.world_point(monster_walk_point);
+            monster->transform->position.x = world_point.x;
+            monster->transform->position.y = world_point.y;
+            monster->transform->position.z = world_point.z + 1.0f; // Keep the player 2 units above the ground
+        }
+
+
+        camera = scene.first_camera;
+        camera->transform->set_parent(player->transform);
+        camera->transform->position.z += 1.0f;
+
+    
         std::cout << "So are we good?" <<std::endl;
     }
 
@@ -200,22 +207,24 @@ namespace NowYouHearMe
 
         glm::mat3 directions = glm::mat3_cast(camera->transform->rotation);
         float amt = 5.0f * elapsed;
-        glm::vec3 step;
-        if (controls.right) camera->transform->position += amt * directions[0];
-	    if (controls.left) camera->transform->position -= amt * directions[0];
-	    if (controls.backward) camera->transform->position += amt * directions[2];
-	    if (controls.forward) camera->transform->position -= amt * directions[2];
+        
+        if (controls.right) player->transform->position += amt * directions[0];
+	    if (controls.left) player->transform->position -= amt * directions[0];
+	    if (controls.backward) player->transform->position += amt * directions[2];
+	    if (controls.forward) player->transform->position -= amt * directions[2];
 
         /*
+        glm::vec3 step;
         if (controls.right) step = amt * directions[0];
         if (controls.left) step = -amt * directions[0];
         if (controls.backward) step = amt * directions[2];
         if (controls.forward) step = -amt * directions[2];
         */
+        
 
-       // walk_mesh->walk(player_walk_point, step);
+        //walk_mesh->walk(player_walk_point, step);
 
-       // camera->transform->position = walk_mesh->world_point(player_walk_point);
+       //camera->transform->position = walk_mesh->world_point(player_walk_point);
 
         // Update the monster's position and growl_timer
         {

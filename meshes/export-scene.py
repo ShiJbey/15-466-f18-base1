@@ -166,6 +166,12 @@ def write_chunk(magic, data):
 	blob.write(struct.pack('I', len(data))) #length
 	blob.write(data)
 
+# Asserts to check data size
+assert(len(xfh_data) % (4+4+4+(4*3)+(4*4)+(4*3)) == 0)
+assert(len(mesh_data) % (4+4+4) == 0)
+assert(len(camera_data) % (4+(4*1)+4+(2*4)) == 0)
+
+
 write_chunk(b'str0', strings_data)
 write_chunk(b'xfh0', xfh_data)
 write_chunk(b'msh0', mesh_data)

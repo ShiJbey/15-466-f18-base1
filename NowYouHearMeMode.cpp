@@ -1,13 +1,11 @@
 
-
-
 #include "NowYouHearMeMode.hpp"
 #include "WalkMeshBuffer.hpp"
 
-//#include "Scene.hpp"
+#include "Scene.hpp"
 #include "MenuMode.hpp"
-//#include "Load.hpp"
-//#include "Sound.hpp"
+#include "Load.hpp"
+#include "Sound.hpp"
 #include "MeshBuffer.hpp"
 #include "gl_errors.hpp" //helper for dumpping OpenGL error messages
 #include "read_chunk.hpp" //helper for reading a vector of structures from a file
@@ -49,6 +47,8 @@ namespace NowYouHearMe
     
     NowYouHearMeMode::NowYouHearMeMode()
     {
+        std::cout << "Started making the game mode" << std::endl;
+
         auto attach_object = [this](Scene::Transform *transform, std::string const &name)
         {
             Scene::Object *object = scene.new_object(transform);
@@ -63,9 +63,15 @@ namespace NowYouHearMe
             return object;
         };
 
-        *walk_mesh = walk_meshes->lookup("WalkMesh");
+        std::cout << "Maybe we make it this far" << std::endl;
 
-        //scene = Scene::load(data_path("nnyhm.scene"));
+        scene = Scene::load(data_path("nyhm.scene"));
+
+        std::cout << "Maybe we make it this far 2" << std::endl;
+
+        //*walk_mesh = walk_meshes->lookup("WalkMesh");
+
+        
 
         // In this block the base code would create some sample crates in the world
         // Here we want to create the stage resuing level generation code from my game0
@@ -84,6 +90,8 @@ namespace NowYouHearMe
 		    attach_object(transform2, "Floor");
         }
 
+        
+
         // Camera setup code borrowed from the base code
         {
             Scene::Transform *transform = scene.new_transform();
@@ -93,6 +101,8 @@ namespace NowYouHearMe
             transform->rotation = glm::angleAxis(glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
             camera = scene.new_camera(transform);
         }
+
+        std::cout << "Done making the game mode" << std::endl;
     }
 
     NowYouHearMeMode::~NowYouHearMeMode()

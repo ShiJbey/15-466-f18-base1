@@ -1,5 +1,8 @@
 #include "WalkMeshBuffer.hpp"
+#include "WalkMesh.hpp"
+
 #include "read_chunk.hpp"
+#include "GL.hpp"
 
 #include <glm/glm.hpp>
 
@@ -10,6 +13,7 @@
 #include <string>
 #include <set>
 #include <cstddef>
+#include <map>
 
 WalkMeshBuffer::WalkMeshBuffer(std::string const &filename) {
     // Open the file
@@ -31,17 +35,17 @@ WalkMeshBuffer::WalkMeshBuffer(std::string const &filename) {
     std::vector< Triangle > tri_data;
 
 	// Keep a counter of the total amount of vertex and Triangle data read in
-	uint32_t vert_total = 0;
-	uint32_t tri_total = 0;
+	GLuint vert_total = 0;
+	GLuint tri_total = 0;
 
 	if (filename.size() >= 4 && filename.substr(filename.size() - 4) == ".pnt") {
 		
 		read_chunk(file, "vert", &vert_data);
-		vert_total = vert_data.size();
+		vert_total = GLuint(vert_data.size());
 
 		
 		read_chunk(file, "tris", &tri_data);
-		tri_total = tri_data.size();
+		tri_total = GLuint(tri_data.size());
 		
 	} else {
 		throw std::runtime_error("Unknown file type '" + filename + "'");

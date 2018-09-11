@@ -70,8 +70,8 @@ NAMES =
 	draw_text
 	Sound
 	WalkMesh
+	WalkMeshBuffer
 	NowYouHearMeMode
-	
 	;
 
 if $(OS) = NT {

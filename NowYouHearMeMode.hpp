@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Mode.hpp"
-
+#include "WalkMeshBuffer.hpp"
 #include "MeshBuffer.hpp"
 #include "GL.hpp"
 #include "Scene.hpp"

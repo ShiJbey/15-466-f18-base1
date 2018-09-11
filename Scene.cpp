@@ -220,7 +220,7 @@ Scene Scene::load(std::string const &filename) {
 		uint32_t name_start;
 		uint32_t name_end;
 		glm::vec3 position;
-		glm::quat rotation;
+		glm::vec4 rotation;
 		glm::vec3 scale;
 	};
 	static_assert(sizeof(SimpleTransform) == 4+4+4+(4*3)+(4*4)+(4*3), "Simple transform should be packed");
@@ -262,14 +262,19 @@ Scene Scene::load(std::string const &filename) {
 	
 	
 
-	
-	if (filename.size() >= 7 && filename.substr(filename.size() - 7) == ".scene") {
+	std::cout << filename.substr(filename.size() - 6)  <<  std::endl;
+
+	if (filename.size() >= 6 && filename.substr(filename.size() - 6) == ".scene") {
 
 		read_chunk(file, "xfh0", &transforms);
+
+		std::cout << "FUK 78" << std::endl;
 
 		read_chunk(file, "msh0", &meshes);
 
 		read_chunk(file, "cam0", &cameras);
+
+		
 
 	} else {
 		throw std::runtime_error("Unknown file type '" + filename + "'");
@@ -295,6 +300,7 @@ Scene Scene::load(std::string const &filename) {
 	};
 
 	
+
 	std::unordered_map<std::string, Transform*> name_to_trans;
 	std::unordered_map<int, std::string> ref_to_name;
 	
@@ -313,7 +319,10 @@ Scene Scene::load(std::string const &filename) {
 				// Create new transform
 				Transform *transform = scene.new_transform();
 				transform->position = match.position;
-				transform->rotation = match.rotation;
+				transform->rotation.x = match.rotation.x;
+				transform->rotation.y = match.rotation.y;
+				transform->rotation.z = match.rotation.z;
+				transform->rotation.w = match.rotation.w;
 				transform->scale = match.scale;
 
 				scene.new_object(transform);
@@ -363,7 +372,7 @@ Scene Scene::load(std::string const &filename) {
 		std::cerr << "WARNING: trailing data in mesh file '" << filename << "'" << std::endl;
 	}
 	*/
-
+	
 	return scene;
 }
 

@@ -262,6 +262,7 @@ void GameMode::show_pause_menu() {
 		Mode::set_current(std::make_shared< CratesMode >());
 	});
 	menu->choices.emplace_back("NOW YOU HEAR ME", [game](){
+		std::cout << "BAck to this again" << std::endl;
 		Mode::set_current(std::make_shared< NowYouHearMe::NowYouHearMeMode >());
 	});
 	menu->choices.emplace_back("QUIT", [](){

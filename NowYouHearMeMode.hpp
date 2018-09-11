@@ -6,6 +6,7 @@
 #include "GL.hpp"
 #include "Scene.hpp"
 #include "Sound.hpp"
+#include "WalkMesh.hpp"
 
 #include <SDL.h>
 #include <glm/glm.hpp>
@@ -55,5 +56,7 @@ namespace NowYouHearMe
 
         std::shared_ptr< Sound::PlayingSample > monster_growl;
 
+        WalkMesh *walk_mesh = nullptr;
+        WalkMesh::WalkPoint player_walk_point;
     };
 };

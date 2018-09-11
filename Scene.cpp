@@ -1,9 +1,19 @@
 #include "Scene.hpp"
+#include "read_chunk.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
 #include <iostream>
+#include <stdexcept>
+#include <fstream>
+#include <iostream>
+#include <vector>
+#include <string>
+#include <set>
+#include <cstddef>
+#include <map>
+#include <unordered_map>
 
 glm::mat4 Scene::Transform::make_local_to_parent() const {
 	return glm::mat4( //translate
@@ -198,6 +208,164 @@ void Scene::draw(Scene::Camera const *camera) {
 	}
 }
 
+
+Scene Scene::load(std::string const &filename) {
+	Scene scene;
+
+	// Open the file
+	std::ifstream file(filename, std::ios::binary);
+
+	struct SimpleTransform {
+		int parent;
+		uint32_t name_start;
+		uint32_t name_end;
+		glm::vec3 position;
+		glm::quat rotation;
+		glm::vec3 scale;
+	};
+	static_assert(sizeof(SimpleTransform) == 4+4+4+(4*3)+(4*4)+(4*3), "Simple transform should be packed");
+	
+	// All the transforms exported by the scene
+	std::vector< SimpleTransform > transforms;
+
+	struct SimpleMesh {
+		int hierarchy_ref;
+		uint32_t name_start;
+		uint32_t name_end;
+	};
+
+	static_assert(sizeof(SimpleMesh) == 4+4+4, "Simple mesh should be packed");
+	std::vector< SimpleMesh > meshes;
+
+	struct SimpleCamera {
+		int hierarchy_ref;
+		char type[4] = {'\0', '\0', '\0', '\0'};
+		float fov_scale;
+		float clip_start;
+		float clip_end;
+	};
+
+	static_assert(sizeof(SimpleCamera) == 4+(1*4)+4+4+4, "Simple camera should be packed");
+	std::vector< SimpleCamera > cameras;
+
+	struct Lamp {
+		int hierarchy_ref;
+		char type;
+		char r;
+		char g;
+		char b;
+		float energy;
+		float distance;
+		float fov;
+	};
+	static_assert(sizeof(Lamp) == 4+1+1+1+1+4+4+4, "Lamp should be packed");
+	
+	
+
+	
+	if (filename.size() >= 7 && filename.substr(filename.size() - 7) == ".scene") {
+
+		read_chunk(file, "xfh0", &transforms);
+
+		read_chunk(file, "msh0", &meshes);
+
+		read_chunk(file, "cam0", &cameras);
+
+	} else {
+		throw std::runtime_error("Unknown file type '" + filename + "'");
+	}
+
+	std::vector< char > strings;
+	read_chunk(file, "str0", &strings);
+
+	// Lambda to check if the begin and end name indices are valid
+	auto valid_range = [&strings](uint32_t name_begin, uint32_t name_end) {
+		return name_begin <= name_end && name_end <= strings.size();
+	};
+
+	// Returns the index of the transform thar mathces this mesh
+	auto get_matching_transform_index = [&transforms](const SimpleMesh& mesh) {
+		for (uint32_t i = 0; i < transforms.size(); i++) {
+			if (transforms[i].name_start == mesh.name_start && 
+				transforms[i].name_end == mesh.name_end) {
+					return (int)i;
+			}
+		}
+		return -1;
+	};
+
+	
+	std::unordered_map<std::string, Transform*> name_to_trans;
+	std::unordered_map<int, std::string> ref_to_name;
+	
+
+	{ // Create the transform heirarchy
+		
+
+		// Fill the two maps created above
+		for (uint32_t i = 0; i < meshes.size(); i++) {
+			if (valid_range(meshes[i].name_start, meshes[i].name_end)) {
+				// Name is valid look for the matching transform
+				SimpleTransform match = transforms[get_matching_transform_index(meshes[i])];
+				// Push new values on to the maps
+				std::string name(&strings[0] + meshes[i].name_start, &strings[0] + meshes[i].name_end);
+
+				// Create new transform
+				Transform *transform = scene.new_transform();
+				transform->position = match.position;
+				transform->rotation = match.rotation;
+				transform->scale = match.scale;
+
+				scene.new_object(transform);
+
+				bool inserted = name_to_trans.insert(std::make_pair(name, transform)).second;
+				if (!inserted) {
+					std::cerr << "WARNING: mesh name '" + name + "' in filename '" + filename + "' collides with existing mesh." << std::endl;
+				}
+
+				inserted = ref_to_name.insert(std::make_pair(meshes[i].hierarchy_ref, name)).second;
+				if (!inserted) {
+					std::cerr << "WARNING: mesh hierarchy reference number \'" << (int)(meshes[i].hierarchy_ref)  << "\' in filename \'" << filename << "\' collides with existing reference." << std::endl;
+				}
+			}
+		}
+
+		// Loop through the transforms and fix parents for meshes
+		for (uint32_t i = 0; i < transforms.size(); i++) {
+			// Find the pointer to the parent's transform
+			Transform *parent_trans = nullptr;
+			auto it = ref_to_name.find(transforms[i].parent);
+			if (it != ref_to_name.end()) {
+				std::string parent_name = it->second;
+				auto it = name_to_trans.find(parent_name);
+				if (it != name_to_trans.end()) {
+					parent_trans = it->second;
+				}
+			}
+
+			// Get the real transform for this simple transform
+			Transform *my_trans = nullptr;
+			std::string name(&strings[0] + transforms[i].name_start, &strings[0] + transforms[i].name_end);
+			auto it2 = name_to_trans.find(name);
+			if (it2 !=  name_to_trans.end()) {
+				my_trans = it2->second;
+			}
+
+			// Set the parent to the transform
+			if (my_trans != nullptr && parent_trans != nullptr) {
+				my_trans->set_parent(parent_trans);
+			}
+		}
+	}
+
+	/*
+	if (file.peek() != EOF) {
+		std::cerr << "WARNING: trailing data in mesh file '" << filename << "'" << std::endl;
+	}
+	*/
+
+	return scene;
+}
 
 Scene::~Scene() {
 	while (first_camera) {

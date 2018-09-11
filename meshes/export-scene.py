@@ -65,7 +65,7 @@ def write_xfh(obj):
 	if obj in obj_to_xfh: return obj_to_xfh[obj]
 	if obj.parent == None:
 		parent_ref = struct.pack('i', -1)
-		world_to_parent = mathutils.Matrix()
+		world_to_parent = mathutils.Matrix() # Produces an empty 4X4 matrix
 	else:
 		parent_ref = write_xfh(obj.parent)
 		world_to_parent = obj.parent.matrix_world.copy()
@@ -105,7 +105,7 @@ def write_camera(obj):
 	if obj.data.type == 'PERSP':
 		camera_data += b"pers"
 		fov = math.atan2(0.5*obj.data.sensor_height, obj.data.lens)/math.pi*180.0*2
-		print("  Vertical FOV: " + str(fov) + " degrees");
+		print("  Vertical FOV: " + str(fov) + " degrees")
 		camera_data += struct.pack('f', fov)
 	elif obj.data.type == 'ORTHO':
 		camera_data += b"orth"

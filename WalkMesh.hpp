@@ -12,7 +12,7 @@ struct WalkMesh {
 	std::vector< glm::uvec3 > triangles; //CCW-oriented
 
 	//TODO: consider also loading vertex normals for interpolated "up" direction:
-	//std::vector< glm::vec3 > vertex_normals;
+	std::vector< glm::vec3 > vertex_normals;
 
 	//This "next vertex" map includes [a,b]->c, [b,c]->a, and [c,a]->b for each triangle, and is useful for checking what's over an edge from a given point:
 	std::unordered_map< glm::uvec2, uint32_t > next_vertex;
@@ -29,6 +29,12 @@ struct WalkMesh {
 	//used to initialize walking -- finds the closest point on the walk mesh:
 	// (should only need to call this at the start of a level)
 	WalkPoint start(glm::vec3 const &world_point) const;
+
+	// Converts wold poitn to barycentric coordinates for a given triangle
+	glm::vec3 to_barycentric(glm::vec3 const &world_point, const glm::uvec3 &triangle) const;
+
+	// Calculates the normal of a triangle
+	glm::vec3 get_normal(const glm::uvec3 &triangle) const;
 
 	//used to update walk point:
 	void walk(WalkPoint &wp, glm::vec3 const &step) const;

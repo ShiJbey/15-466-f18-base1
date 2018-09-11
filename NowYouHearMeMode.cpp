@@ -1,8 +1,13 @@
-#include "NowYouHearMeMode.hpp"
 
+
+
+#include "NowYouHearMeMode.hpp"
+#include "WalkMeshBuffer.hpp"
+
+//#include "Scene.hpp"
 #include "MenuMode.hpp"
-#include "Load.hpp"
-#include "Sound.hpp"
+//#include "Load.hpp"
+//#include "Sound.hpp"
 #include "MeshBuffer.hpp"
 #include "gl_errors.hpp" //helper for dumpping OpenGL error messages
 #include "read_chunk.hpp" //helper for reading a vector of structures from a file
@@ -19,6 +24,7 @@
 #include <cstddef>
 #include <random>
 
+
 namespace NowYouHearMe
 {
 
@@ -34,7 +40,13 @@ namespace NowYouHearMe
         return new Sound::Sample(data_path("monster_growl.wav"));
     });
 
-
+    
+    Load< WalkMeshBuffer > walk_meshes(LoadTagDefault, [](){
+        return new WalkMeshBuffer(data_path("nyhm.pnt"));
+    });
+    
+    
+    
     NowYouHearMeMode::NowYouHearMeMode()
     {
         auto attach_object = [this](Scene::Transform *transform, std::string const &name)
@@ -51,6 +63,10 @@ namespace NowYouHearMe
             return object;
         };
 
+        *walk_mesh = walk_meshes->lookup("WalkMesh");
+
+        //scene = Scene::load(data_path("nnyhm.scene"));
+
         // In this block the base code would create some sample crates in the world
         // Here we want to create the stage resuing level generation code from my game0
         // https://github.com/ShiJbey/15666Game0-Tilt-Escape
@@ -58,18 +74,21 @@ namespace NowYouHearMe
             // Creates a sinlge Wall
             Scene::Transform *transform1 = scene.new_transform();
 		    transform1->position = glm::vec3(0.0f, 0.0f, 0.0f);
-            transform1->scale = glm::vec3(1.0f, 1.0f, 3.0f);
-		    attach_object(transform1, "Wall");
+            transform1->scale = glm::vec3(1.0f, 1.0f, 1.0f);
+		    attach_object(transform1, "Walls");
             // Creates a sinlge Wall
             Scene::Transform *transform2 = scene.new_transform();
-		    transform2->position = glm::vec3(2.0f, -1.0f, -1.0f);
+            transform2->rotation = glm::angleAxis(glm::radians(-180.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+		    transform2->position = glm::vec3(0.0f, 9.0f, 1.5f);
+     
 		    attach_object(transform2, "Floor");
         }
 
         // Camera setup code borrowed from the base code
         {
             Scene::Transform *transform = scene.new_transform();
-            transform->position = glm::vec3(0.0f, -10.0f, 1.0f);
+            player_walk_point = walk_mesh->start(glm::vec3(0.0f, 0.0f, 0.0f));
+            transform->position = walk_mesh->world_point(player_walk_point);
             //Cameras look along -z, so rotate view to look at origin:
             transform->rotation = glm::angleAxis(glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
             camera = scene.new_camera(transform);
@@ -103,6 +122,7 @@ namespace NowYouHearMe
                 return true;
             }
         }
+
         //handle tracking the mouse for rotation control:
         if (!mouse_captured) {
             if (evt.type == SDL_KEYDOWN && evt.key.keysym.scancode == SDL_SCANCODE_ESCAPE) {
@@ -146,10 +166,15 @@ namespace NowYouHearMe
 
         glm::mat3 directions = glm::mat3_cast(camera->transform->rotation);
         float amt = 5.0f * elapsed;
-        if (controls.right) camera->transform->position += amt * directions[0];
-        if (controls.left) camera->transform->position -= amt * directions[0];
-        if (controls.backward) camera->transform->position += amt * directions[2];
-        if (controls.forward) camera->transform->position -= amt * directions[2];
+        glm::vec3 step;
+        if (controls.right) step = amt * directions[0];
+        if (controls.left) step = -amt * directions[0];
+        if (controls.backward) step = amt * directions[2];
+        if (controls.forward) step = -amt * directions[2];
+
+        walk_mesh->walk(player_walk_point, step);
+
+        camera->transform->position = walk_mesh->world_point(player_walk_point);
 
         // Update the monster's position and growl_timer
         {

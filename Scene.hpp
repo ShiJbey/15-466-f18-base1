@@ -102,6 +102,7 @@ struct Scene {
 
 	//------ functions to create / destroy scene things -----
 	//NOTE: all scene objects are automatically freed when scene is deallocated
+	static Scene load(std::string const &filename);
 
 	//Create a new transform:
 	Transform *new_transform();

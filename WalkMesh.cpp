@@ -137,10 +137,10 @@ void WalkMesh::walk(WalkPoint &wp, glm::vec3 const &step) const {
 			truncated_weights.z = 1 - truncated_weights.y - truncated_weights.x;
 		}
 
-		glm::vec3 adjusted_world_pos = world_point(wp);
+		//glm::vec3 adjusted_world_pos = world_point(wp);
 
 		// Check if there is a triangle on the other side of this edge
-		if (truncated_weights.x = 0) {
+		if (truncated_weights.x == 0) {
 			// We have gone over side BC, check for another triangle
 			std::unordered_map< glm::uvec2, uint32_t >::const_iterator it = next_vertex.find(glm::vec2(wp.triangle.y, wp.triangle.z));
 			if (it != next_vertex.end()) {
@@ -151,7 +151,7 @@ void WalkMesh::walk(WalkPoint &wp, glm::vec3 const &step) const {
 			else {
 				wp.weights = truncated_weights;
 			}
-		} else if (truncated_weights.y = 0) {
+		} else if (truncated_weights.y == 0) {
 			// We have gone over side BC, check for another triangle
 			std::unordered_map< glm::uvec2, uint32_t >::const_iterator it = next_vertex.find(glm::vec2(wp.triangle.z, wp.triangle.x));
 			if (it != next_vertex.end()) {
@@ -161,7 +161,7 @@ void WalkMesh::walk(WalkPoint &wp, glm::vec3 const &step) const {
 			} else {
 				wp.weights = truncated_weights;
 			}
-		} else if (truncated_weights.z = 0) {
+		} else if (truncated_weights.z == 0) {
 			// We have gone over side BC, check for another triangle
 			std::unordered_map< glm::uvec2, uint32_t >::const_iterator it = next_vertex.find(glm::vec2(wp.triangle.x, wp.triangle.y));
 			if (it != next_vertex.end()) {

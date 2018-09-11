@@ -167,7 +167,7 @@ void MenuMode::draw(glm::uvec2 const &drawable_size) {
 		y -= choice.padding;
 		y -= choice.height;
 
-		bool is_selected = (&choice - &choices[0] == selected);
+		bool is_selected = (&choice - &choices[0] == (int)selected);
 		std::string label = choice.label;
 
 		if (is_selected) {

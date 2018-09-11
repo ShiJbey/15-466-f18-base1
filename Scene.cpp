@@ -209,8 +209,7 @@ void Scene::draw(Scene::Camera const *camera) {
 }
 
 
-Scene Scene::load(std::string const &filename) {
-	Scene scene;
+std::unordered_map<std::string, Scene::Transform*> Scene::load(std::string const &filename) {
 
 	// Open the file
 	std::ifstream file(filename, std::ios::binary);
@@ -220,7 +219,7 @@ Scene Scene::load(std::string const &filename) {
 		uint32_t name_start;
 		uint32_t name_end;
 		glm::vec3 position;
-		glm::vec4 rotation;
+		glm::quat rotation;
 		glm::vec3 scale;
 	};
 	static_assert(sizeof(SimpleTransform) == 4+4+4+(4*3)+(4*4)+(4*3), "Simple transform should be packed");
@@ -261,14 +260,14 @@ Scene Scene::load(std::string const &filename) {
 	static_assert(sizeof(Lamp) == 4+1+1+1+1+4+4+4, "Lamp should be packed");
 	
 	
+	std::vector< char > strings;
+	read_chunk(file, "str0", &strings);
 
 	std::cout << filename.substr(filename.size() - 6)  <<  std::endl;
 
 	if (filename.size() >= 6 && filename.substr(filename.size() - 6) == ".scene") {
 
 		read_chunk(file, "xfh0", &transforms);
-
-		std::cout << "FUK 78" << std::endl;
 
 		read_chunk(file, "msh0", &meshes);
 
@@ -280,8 +279,7 @@ Scene Scene::load(std::string const &filename) {
 		throw std::runtime_error("Unknown file type '" + filename + "'");
 	}
 
-	std::vector< char > strings;
-	read_chunk(file, "str0", &strings);
+	
 
 	// Lambda to check if the begin and end name indices are valid
 	auto valid_range = [&strings](uint32_t name_begin, uint32_t name_end) {
@@ -306,7 +304,7 @@ Scene Scene::load(std::string const &filename) {
 	
 
 	{ // Create the transform heirarchy
-		
+		Transform *transform;
 
 		// Fill the two maps created above
 		for (uint32_t i = 0; i < meshes.size(); i++) {
@@ -317,15 +315,11 @@ Scene Scene::load(std::string const &filename) {
 				std::string name(&strings[0] + meshes[i].name_start, &strings[0] + meshes[i].name_end);
 
 				// Create new transform
-				Transform *transform = scene.new_transform();
+				transform = new_transform();
+				transform->name = name;
 				transform->position = match.position;
-				transform->rotation.x = match.rotation.x;
-				transform->rotation.y = match.rotation.y;
-				transform->rotation.z = match.rotation.z;
-				transform->rotation.w = match.rotation.w;
+				transform->rotation = match.rotation;
 				transform->scale = match.scale;
-
-				scene.new_object(transform);
 
 				bool inserted = name_to_trans.insert(std::make_pair(name, transform)).second;
 				if (!inserted) {
@@ -373,7 +367,7 @@ Scene Scene::load(std::string const &filename) {
 	}
 	*/
 	
-	return scene;
+	return name_to_trans;
 }
 
 Scene::~Scene() {
@@ -386,4 +380,13 @@ Scene::~Scene() {
 	while (first_transform) {
 		delete_transform(first_transform);
 	}
+}
+
+Scene::Transform* Scene::get_object(std::string const &name) {
+	for (Scene::Object *object = first_object; object != nullptr; object = object->alloc_next) {
+		if (object->transform->name == name) {
+			return object->transform;
+		}
+	}
+	return nullptr;
 }

@@ -8,11 +8,15 @@
 #include <vector>
 #include <list>
 #include <functional>
+#include <unordered_map>
 
 //"Scene" manages a hierarchy of transformations with, potentially, attached information.
 struct Scene {
 
 	struct Transform {
+		// Extra
+		std::string name = "";
+
 		//simple specification:
 		glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f);
 		glm::quat rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
@@ -102,7 +106,7 @@ struct Scene {
 
 	//------ functions to create / destroy scene things -----
 	//NOTE: all scene objects are automatically freed when scene is deallocated
-	static Scene load(std::string const &filename);
+	std::unordered_map<std::string, Scene::Transform*> load(std::string const &filename);
 
 	//Create a new transform:
 	Transform *new_transform();
@@ -118,6 +122,8 @@ struct Scene {
 	Camera *new_camera(Transform *transform);
 	//Delete a camera:
 	void delete_camera(Camera *);
+
+	Transform* get_object(std::string const &name);
 
 	//used to manage allocated objects:
 	Transform *first_transform = nullptr;

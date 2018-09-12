@@ -1,27 +1,35 @@
 # Game Information
 (Note: fill in this portion with information about your game.)
 
-Title: (TODO: your game's title)
+Title: Now You Hear Me
 
-Author: (TODO: your name)
+Author: Shi Johnson-Bey
 
-Design Document: [TODO: name of design document](TODO: link to design document)
+Design Document: [Now you hear me, Now you don't](http://graphics.cs.cmu.edu/courses/15-466-f18/game1-designs/suannc/)
 
 Screen Shot:
 
-![Screen Shot](screenshot.png)
+![Screen Shot](screenshot-1.png)
 
 How To Play:
 
-TODO: describe the controls and (if needed) goals/strategy.
+* Move with WASD
+* Look around with the mouse (click on game window to track mouse position)
+* Navigate to the exit of the maze
+* Avoid colliding with the invisible monster
+* The monster will growl on a regular interval
+* Growl volume will get louder as the player gets closer to the monster
 
 Changes From The Design Document:
 
-TODO: what did you need to add/remove/modify from the original design? Why?
+I did not make any changes from the original design document.
 
 Good / Bad / Ugly Code:
 
-TODO: provide examples of code you wrote from this project that you think is good (elegant, simple, useful), bad (hack-y, brittle, unreadable), and ugly (particularly inelegant). Provide a sentence or two of justification for the examples.
+ 
+My code example for this game is my implementation of ```void WalkMesh::walk(WalkPoint &wp, glm::vec3 const &step) const;```.
+It doesn't do anything amazing. I'm just happy that it works because a lot of white board time went into understanding
+the math behind it (including the sections that are commented out).
 
 # Using This Base Code
 
@@ -52,19 +60,26 @@ Before you dive into the code, it helps to understand the overall structure of t
 
 ## Asset Build Instructions
 
-In order to generate the ```dist/crates.pnc``` file, tell blender to execute the ```meshes/export-meshes.py``` script:
+In order to generate the ```dist/nyhm.pnc``` file, tell blender to execute the ```meshes/export-meshes.py``` script:
 
 ```
-blender --background --python meshes/export-meshes.py -- meshes/crates.blend dist/crates.pnc
+blender --background --python meshes/export-meshes.py -- meshes/nyhm_reloaded.blend dist/nyhm.pnc
 ```
 
-In order to generate the ```dist/crates.scene``` file, tell blender to execute the ```meshes/export-scene.py``` script:
+In order to generate the ```dist/nyhm.scene``` file, tell blender to execute the ```meshes/export-scene.py``` script:
 
 ```
-blender --background --python meshes/export-scene.py -- meshes/crates.blend dist/crates.scene
+blender --background --python meshes/export-scene.py -- meshes/nyhm_reloaded.blend dist/nyhm.scene
 ```
 
-There is a Makefile in the ```meshes``` directory that will do this for you.
+In order to generate the ```dist/nyhm.pnt``` file, tell blender to execute the ```meshes/export-walkmesh.py``` script:
+
+```
+blender --background --python meshes/export-walkmesh.py -- meshes/nyhm_reloaded.blend dist/nyhm.pnt
+```
+
+There is a Makefile in the ```meshes``` directory that will do this for you. If you're on windows please use ```export.bat```
+to run all of the above commands
 
 ## Runtime Build Instructions
 

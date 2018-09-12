@@ -194,7 +194,7 @@ void CratesMode::draw(glm::uvec2 const &drawable_size) {
 		}
 		float height = 0.06f;
 		float width = text_width(message, height);
-		draw_text(message, glm::vec2(-0.5f * width,-0.99f), height, glm::vec4(0.0f, 0.0f, 0.0f, 0.5f));
+		//draw_text(message, glm::vec2(-0.5f * width,-0.99f), height, glm::vec4(0.0f, 0.0f, 0.0f, 0.5f));
 		draw_text(message, glm::vec2(-0.5f * width,-1.0f), height, glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
 
 		glUseProgram(0);

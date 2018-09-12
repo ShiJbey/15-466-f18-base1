@@ -22,9 +22,8 @@ WalkMeshBuffer::WalkMeshBuffer(std::string const &filename) {
     // Create vertex struct for extracting vertex data
     struct Vertex {
         glm::vec3 Position;
-        glm::vec3 Normal;
     };
-	static_assert(sizeof(Vertex) == 3*4+3*4, "Vertex is packed.");
+	static_assert(sizeof(Vertex) == 3*4, "Vertex is packed.");
     std::vector< Vertex > vert_data;
 
     // Create triangle struct for extracting trangle data
@@ -81,10 +80,8 @@ WalkMeshBuffer::WalkMeshBuffer(std::string const &filename) {
 
             // Create vector of glm::vec3 vertex positions for this mesh
             std::vector< glm::vec3 > vertices;
-            std::vector< glm::vec3 > normals;
             for (uint32_t i = entry.vert_begin; i < entry.vert_end; i++) {
                 vertices.push_back(vert_data[i].Position);
-                normals.push_back(vert_data[i].Normal);
             }
 
             // Create a vector of glm::uvec3 triangles
@@ -94,7 +91,6 @@ WalkMeshBuffer::WalkMeshBuffer(std::string const &filename) {
             }
 
             WalkMesh mesh(vertices, triangles);
-            mesh.vertex_normals = normals;
 
             bool inserted = meshes.insert(std::make_pair(name, mesh)).second;
 			if (!inserted) {

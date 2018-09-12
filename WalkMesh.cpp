@@ -15,40 +15,52 @@
 
 WalkMesh::WalkMesh(std::vector< glm::vec3 > const &vertices_, std::vector< glm::uvec3 > const &triangles_)
 	: vertices(vertices_), triangles(triangles_) {
-	//TODO: construct next_vertex map
 	for (uint32_t i = 0; i < triangles.size(); i++) {
-		next_vertex[glm::vec2(triangles[i].x, triangles[i].y)] = triangles[i].z;
-		next_vertex[glm::vec2(triangles[i].y, triangles[i].z)] = triangles[i].x;
-		next_vertex[glm::vec2(triangles[i].z, triangles[i].x)] = triangles[i].y;
+		next_vertex.insert({glm::vec2(triangles[i].x, triangles[i].y), triangles[i].z});
+		next_vertex.insert({glm::vec2(triangles[i].y, triangles[i].z), triangles[i].x});
+		next_vertex.insert({glm::vec2(triangles[i].z, triangles[i].x), triangles[i].y});
 	}
 }
 
 WalkMesh::WalkPoint WalkMesh::start(glm::vec3 const &world_point) const {
+	
 	WalkPoint closest;
-
 	float closest_distance = std::numeric_limits<float>::max();
+
+	auto in_triangle = [](WalkPoint const &walkpoint) {
+		return walkpoint.weights.x >= 0 && walkpoint.weights.y >= 0 && walkpoint.weights.z >= 0;
+	};
 
 	//TODO: iterate through triangles'
 	for (uint32_t i = 0; i < triangles.size(); i++) {
-		//TODO: for each triangle, find closest point on triangle to world_point
+		// Just find a triangle where that this point falls inside
+		//printf("Current: Triangle <%d, %d, %d>: \n", triangles[i].x, triangles[i].y, triangles[i].z);
 
-		WalkPoint current;
-		current.triangle = triangles[i];
-		current.weights = to_barycentric(world_point, current.triangle);
+		WalkPoint projected_point;
+		projected_point.triangle = triangles[i];
+		projected_point.weights = to_barycentric(world_point, projected_point.triangle);
 
-		//TODO: for each triangle, find closest point on triangle to world_point
-		glm::vec3 closest_world_point = this->world_point(current);
-
-		glm::vec3 difference = world_point - closest_world_point;
-		float distance = glm::length(difference);
-
-		if (distance < closest_distance) {
+		
+		if (in_triangle(projected_point)) {
 			//TODO: if point is closest, closest.triangle gets the current triangle, closest.weights gets the barycentric coordinates
-			closest = current;
+			//printf("=== MATCH ===: Triangle <%d, %d, %d>: \n", triangles[i].x, triangles[i].y, triangles[i].z);
+			closest.triangle = triangles[i];
+			closest.weights = to_barycentric(world_point, triangles[i]);
+			
+			/*
+			printf("Triangle <%d, %d, %d>: \n", triangles[i].x, triangles[i].y, triangles[i].z);
+			printf("Its verts have the following coords:\n");
+			printf("<%f, %f, %f>\n",vertices[projected_point.triangle.x].x, vertices[projected_point.triangle.x].y, vertices[projected_point.triangle.x].z);
+			printf("<%f, %f, %f>\n",vertices[projected_point.triangle.y].x, vertices[projected_point.triangle.y].y, vertices[projected_point.triangle.y].z);
+			printf("<%f, %f, %f>\n",vertices[projected_point.triangle.z].x, vertices[projected_point.triangle.z].y, vertices[projected_point.triangle.z].z);
+			*/
 		}
 	}
-	
-	
+
+	if (closest.triangle.x == -1U) {
+		std::cerr << "This point is not above any point on the nav mesh" << std::endl;
+	}
+
 	return closest;
 }
 
@@ -61,8 +73,8 @@ glm::vec3 WalkMesh::to_barycentric(glm::vec3 const &world_point, const glm::uvec
 	glm::vec3 v = vertices[triangle.z] - vertices[triangle.x];
 	glm::vec3 w = world_point - vertices[triangle.x];
 	
-	float gamma = (glm::dot(n, glm::cross(u, w))) / glm::dot(n, n);
-	float beta = (glm::dot(n, glm::cross(w, v))) / glm::dot(n, n);
+	float gamma = glm::dot(glm::cross(u, w), n) / glm::dot(n, n);
+	float beta = glm::dot(glm::cross(w, v), n) / glm::dot(n, n);
 	float alpha = 1 - gamma - beta;
 	
 	return glm::vec3(alpha, beta, gamma);
@@ -79,114 +91,171 @@ glm::vec3 WalkMesh::get_normal(const glm::uvec3 &triangle) const {
 
 void WalkMesh::walk(WalkPoint &wp, glm::vec3 const &step) const {
 	//TODO: project step to barycentric coordinates to get weights_step
+
+	//printf("In Triangle: <%d, %d, %d>\n", wp.triangle.x, wp.triangle.y, wp.triangle.z);
+
 	glm::vec3 world_pos = this->world_point(wp);
+
+	//printf("At Bary centric: <%f, %f, %f>\n", wp.weights.x, wp.weights.y, wp.weights.z);
+
 	glm::vec3 next_world_pos = world_pos + step;
 
-	glm::vec3 weights_step = to_barycentric(next_world_pos, wp.triangle) - wp.weights;
+	glm::vec3 next_world_pos_bary = to_barycentric(next_world_pos, wp.triangle);
 
+	//printf("Wants to move to: <%f, %f, %f>\n", next_world_pos_bary.x, next_world_pos_bary.y, next_world_pos_bary.z);
 
-	//TODO: when does wp.weights + t * weights_step cross a triangle edge?
-	float t = 1.0f;
+	glm::vec3 step_barycentric = to_barycentric(next_world_pos, wp.triangle) - wp.weights;
 
-	glm::vec3 new_weights = wp.weights + t * weights_step;
+	//printf("Step Change: <%f, %f, %f>\n", step_barycentric.x, step_barycentric.y, step_barycentric.z);
 
-	if (new_weights.x >= 0 && new_weights.y >= 0 && new_weights.z >= 0) {
+	WalkPoint predicted_walkpoint;
+	predicted_walkpoint.triangle = wp.triangle;
+	predicted_walkpoint.weights = next_world_pos_bary;
+	glm::vec3 walkpoint_world_pos = this->world_point(predicted_walkpoint);
+	//printf("Results in world position: <%f, %f, %f>\n", walkpoint_world_pos.x, walkpoint_world_pos.y, walkpoint_world_pos.z);
+
+	if (next_world_pos_bary.x >= 0 && next_world_pos_bary.y >= 0 && next_world_pos_bary.z >= 0) {
 		// We have not crossed the triangle and the character may move
-		wp.weights = wp.weights + t * weights_step;
+		wp.weights = next_world_pos_bary;
 	} else {
-		glm::vec3 w = next_world_pos - vertices[wp.triangle.x];
-		glm::vec3 u = vertices[wp.triangle.y] - vertices[wp.triangle.x];
-		glm::vec3 v = vertices[wp.triangle.z] - vertices[wp.triangle.x];
-		glm::vec3 BC = vertices[wp.triangle.z] - vertices[wp.triangle.y];
-		glm::vec3 truncated_weights = wp.weights;
+		
+		bool adjacent_triangle_found = false;
 
-		// https://math.stackexchange.com/questions/1092912/find-closest-point-in-triangle-given-barycentric-coordinates-outside/2340013#2340013
-		// Case 1:
-		if (new_weights.x >= 0 && new_weights.y < 0) {
-			if (new_weights.z < 0 && glm::dot(w, u) > 0.0f) {
-				truncated_weights.y = std::min(1.0f, glm::dot(w, u) / glm::dot(u, u));
-				truncated_weights.z = 0;
-			} else {
-				truncated_weights.y = 0;
-				truncated_weights.z = std::min(1.0f, std::max(0.0f, glm::dot(w, v) / glm::dot(v, v)));
-			}
-			truncated_weights.x = 1 -truncated_weights.y - truncated_weights.z;
-		}
-
-		// Case 2:
-		else if (new_weights.y >= 0 && new_weights.z < 0) {
-			if (new_weights.x < 0 && glm::dot(w, u) > 0.0f) {
-				truncated_weights.z = std::min(1.0f, glm::dot(w, u) / glm::dot(u, u));
-				truncated_weights.x = 0;
-			} else {
-				truncated_weights.z = 0;
-				truncated_weights.x = std::min(1.0f, std::max(0.0f, glm::dot(w, BC) / glm::dot(BC, BC)));
-			}
-			truncated_weights.y = 1 - truncated_weights.x - truncated_weights.z;
-		}
-
-		// Case 3:
-		else if (new_weights.z >= 0 && new_weights.x < 0) {
-			if (new_weights.y < 0 && glm::dot(w, v) > 0.0f) {
-				truncated_weights.x = std::min(1.0f, glm::dot(w, v) / glm::dot(v, v));
-				truncated_weights.y = 0;
-			} else {
-				truncated_weights.x = 0;
-				truncated_weights.y = std::min(1.0f, std::max(0.0f, glm::dot(w, BC) / glm::dot(BC, BC)));
-			}
-			truncated_weights.z = 1 - truncated_weights.y - truncated_weights.x;
-		}
-
-		//glm::vec3 adjusted_world_pos = world_point(wp);
-
-		// Check if there is a triangle on the other side of this edge
-		if (truncated_weights.x == 0) {
-			// We have gone over side BC, check for another triangle
-			std::unordered_map< glm::uvec2, uint32_t >::const_iterator it = next_vertex.find(glm::vec2(wp.triangle.y, wp.triangle.z));
+		if (next_world_pos_bary.x < 0.0f) {
+			// check if there is another triangle with points y and z
+			auto it = next_vertex.find(glm::uvec2(wp.triangle.z, wp.triangle.y));
 			if (it != next_vertex.end()) {
-				// Set this triangle as the current triangle
-				wp.triangle = glm::uvec3(wp.triangle.y, wp.triangle.z, it->second);
+				// There is another triangle move to it
+				//printf("==Found Adj Triangle: <%d, %d, %d>\n", wp.triangle.z, wp.triangle.y, it->second);
+				wp.triangle = glm::uvec3(wp.triangle.z, wp.triangle.y, it->second);
 				wp.weights = to_barycentric(next_world_pos, wp.triangle);
-			}
-			else {
-				wp.weights = truncated_weights;
-			}
-		} else if (truncated_weights.y == 0) {
-			// We have gone over side BC, check for another triangle
-			std::unordered_map< glm::uvec2, uint32_t >::const_iterator it = next_vertex.find(glm::vec2(wp.triangle.z, wp.triangle.x));
-			if (it != next_vertex.end()) {
-				// Set this triangle
-				wp.triangle = glm::uvec3(wp.triangle.z, wp.triangle.x, it->second);
-				wp.weights = to_barycentric(next_world_pos, wp.triangle);
-			} else {
-				wp.weights = truncated_weights;
-			}
-		} else if (truncated_weights.z == 0) {
-			// We have gone over side BC, check for another triangle
-			std::unordered_map< glm::uvec2, uint32_t >::const_iterator it = next_vertex.find(glm::vec2(wp.triangle.x, wp.triangle.y));
-			if (it != next_vertex.end()) {
-				// Set this triangle
-				wp.triangle = glm::uvec3(wp.triangle.x, wp.triangle.y, it->second);
-				wp.weights = to_barycentric(next_world_pos, wp.triangle);
-			} else {
-				wp.weights = truncated_weights;
+				adjacent_triangle_found = true;
 			}
 		}
 
+		if (next_world_pos_bary.y < 0.0f) {
+			// check if there is another triangle with points y and z
+			auto it = next_vertex.find(glm::uvec2(wp.triangle.x, wp.triangle.z));
+			if (it != next_vertex.end()) {
+				//printf("==Found Adj Triangle: <%d, %d, %d>\n", wp.triangle.x, wp.triangle.x, it->second);
+				// There is another triangle move to it
+				wp.triangle = glm::uvec3(wp.triangle.x, wp.triangle.z, it->second);
+				wp.weights = to_barycentric(next_world_pos, wp.triangle);
+				adjacent_triangle_found = true;
+			}
+		}
+
+		if (next_world_pos_bary.z < 0.0f) {
+			// check if there is another triangle with points y and z
+			auto it = next_vertex.find(glm::uvec2(wp.triangle.y, wp.triangle.x));
+			if (it != next_vertex.end()) {
+				//printf("==Found Adj Triangle: <%d, %d, %d>\n", wp.triangle.y, wp.triangle.x, it->second);
+				// There is another triangle move to it
+				wp.triangle = glm::uvec3(wp.triangle.y, wp.triangle.x, it->second);
+				wp.weights = to_barycentric(next_world_pos, wp.triangle);
+				adjacent_triangle_found = true;
+			}
+		}
 	}
-
-	/*
-	if (t >= 1.0f) { //if a triangle edge is not crossed
-		//TODO: wp.weights gets moved by weights_step, nothing else needs to be done.
-
-	} else { //if a triangle edge is crossed
-		//TODO: wp.weights gets moved to triangle edge, and step gets reduced
-		//if there is another triangle over the edge:
-			//TODO: wp.triangle gets updated to adjacent triangle
-			//TODO: step gets rotated over the edge
-		//else if there is no other triangle over the edge:
-			//TODO: wp.triangle stays the same.
-			//TODO: step gets updated to slide along the edge
-	}
-	*/
 }
+
+/*
+{ // Adjust the weights if no new triangle is found
+	glm::vec3 AP = next_world_pos - vertices[wp.triangle.x];
+	glm::vec3 AB = vertices[wp.triangle.y] - vertices[wp.triangle.x];
+	glm::vec3 AC = vertices[wp.triangle.z] - vertices[wp.triangle.x];
+	glm::vec3 BC = vertices[wp.triangle.z] - vertices[wp.triangle.y];
+	glm::vec3 adjusted_weights = wp.weights;
+
+	// https://math.stackexchange.com/questions/1092912/find-closest-point-in-triangle-given-barycentric-coordinates-outside/2340013#2340013
+	// Case 1:
+	if (next_world_pos_bary.x >= 0.0f && next_world_pos_bary.y < 0.0f) {
+		if (next_world_pos_bary.z < 0.0f && glm::dot(AP, AB) > 0.0f) {
+			adjusted_weights.y = std::min(1.0f, glm::dot(AP, AB) / glm::dot(AB, AB));
+			adjusted_weights.z = 0.0f;
+		} else {
+			adjusted_weights.y = 0.0f;
+			adjusted_weights.z = std::min(1.0f, std::max(0.0f, glm::dot(AP, AC) / glm::dot(AC, AC)));
+		}
+		adjusted_weights.x = 1.0f - adjusted_weights.y - adjusted_weights.z;
+	}
+	// Case 2:
+	else if (next_world_pos_bary.y >= 0.0f && next_world_pos_bary.z < 0.0f) {
+		if (next_world_pos_bary.x < 0.0f && glm::dot(AP, AB) > 0.0f) {
+			adjusted_weights.z = std::min(1.0f, glm::dot(AP, AB) / glm::dot(AB, AB));
+			adjusted_weights.x = 0.0f;
+		} else {
+			adjusted_weights.z = 0.0f;
+			adjusted_weights.x = std::min(1.0f, std::max(0.0f, glm::dot(AP, BC) / glm::dot(BC, BC)));
+		}
+		adjusted_weights.y = 1 - adjusted_weights.x - adjusted_weights.z;
+	}
+	// Case 3:
+	else if (next_world_pos_bary.z >= 0.0f && next_world_pos_bary.x < 0.0f) {
+		if (next_world_pos_bary.y < 0.0f && glm::dot(AP, AC) > 0.0f) {
+			adjusted_weights.x = std::min(1.0f, glm::dot(AP, AC) / glm::dot(AC, AC));
+			adjusted_weights.y = 0.0f;
+		} else {
+			adjusted_weights.x = 0.0f;
+			adjusted_weights.y = std::min(1.0f, std::max(0.0f, glm::dot(AP, BC) / glm::dot(BC, BC)));
+		}
+		adjusted_weights.z = 1 - adjusted_weights.y - adjusted_weights.x;
+	}
+
+	bool adjacent_triangle_found = false;
+
+if (adjusted_weights.x == 0.0f) {
+	// check if there is another triangle with points y and z
+	auto it = next_vertex.find(glm::uvec2(wp.triangle.z, wp.triangle.y));
+	if (it != next_vertex.end()) {
+		// There is another triangle move to it
+		wp.triangle = glm::uvec3(wp.triangle.z, wp.triangle.y, it->second);
+		wp.weights = to_barycentric(next_world_pos, wp.triangle);
+		adjacent_triangle_found = true;
+	}
+}
+
+if (adjusted_weights.y == 0.0f) {
+	// check if there is another triangle with points y and z
+	auto it = next_vertex.find(glm::uvec2(wp.triangle.x, wp.triangle.z));
+	if (it != next_vertex.end()) {
+		// There is another triangle move to it
+		wp.triangle = glm::uvec3(wp.triangle.x, wp.triangle.z, it->second);
+		wp.weights = to_barycentric(next_world_pos, wp.triangle);
+		adjacent_triangle_found = true;
+	}
+}
+
+if (adjusted_weights.z == 0.0f) {
+	// check if there is another triangle with points y and z
+	auto it = next_vertex.find(glm::uvec2(wp.triangle.y, wp.triangle.x));
+	if (it != next_vertex.end()) {
+		// There is another triangle move to it
+		wp.triangle = glm::uvec3(wp.triangle.y, wp.triangle.x, it->second);
+		wp.weights = to_barycentric(next_world_pos, wp.triangle);
+		adjacent_triangle_found = true;
+	}
+}
+
+
+	//if (!adjacent_triangle_found)
+		//wp.weights = adjusted_weights;
+
+} // End Weight Adjustment
+*/
+
+
+/*
+if (t >= 1.0f) { //if a triangle edge is not crossed
+//TODO: wp.weights gets moved by weights_step, nothing else needs to be done.
+
+} else { //if a triangle edge is crossed
+//TODO: wp.weights gets moved to triangle edge, and step gets reduced
+//if there is another triangle over the edge:
+	//TODO: wp.triangle gets updated to adjacent triangle
+	//TODO: step gets rotated over the edge
+//else if there is no other triangle over the edge:
+	//TODO: wp.triangle stays the same.
+	//TODO: step gets updated to slide along the edge
+}
+*/

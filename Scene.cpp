@@ -279,38 +279,32 @@ std::unordered_map<std::string, Scene::Transform*> Scene::load(std::string const
 	if (filename.size() >= 6 && filename.substr(filename.size() - 6) == ".scene") {
 
 		read_chunk(file, "xfh0", &transforms);
-		printf("%zd transforms were imported from blender\n", transforms.size());
-		
-		
+		read_chunk(file, "msh0", &meshes);
+		read_chunk(file, "cam0", &cameras);
+		read_chunk(file, "lmp0", &lamps);
 
+		/* Print out the information about the imported structs
 		printf("All Blender Transforms:\n");
 		for (uint32_t i = 0; i < transforms.size(); i++) {
 			printf("Transform: %d\n", i);
 			print_blender_transform(transforms[i]);
 		}
-		
-
-
-		read_chunk(file, "msh0", &meshes);
 
 		printf("All Meshes:\n");
 		for (uint32_t i = 0; i < meshes.size(); i++) {
 			printf("Name: %s - Ref: %d\n", get_blendermesh_name(meshes[i]).c_str(), meshes[i].hierarchy_ref);
 		}
 
-
-		read_chunk(file, "cam0", &cameras);
-
 		printf("Cameras: \n");
 		for (uint32_t i = 0; i < cameras.size(); i++) {
 			printf("Type: %.*s - Ref: %d\n", 4, cameras[i].type, cameras[i].hierarchy_ref);
 		}
 
-		read_chunk(file, "lmp0", &lamps);
 		printf("Lamps: \n");
 		for (uint32_t i = 0; i < lamps.size(); i++) {
 			printf("Type: %c - Ref: %d\n", lamps[i].type, lamps[i].hierarchy_ref);
 		}
+		*/
 
 	} else {
 		throw std::runtime_error("Unknown file type '" + filename + "'");
@@ -334,9 +328,7 @@ std::unordered_map<std::string, Scene::Transform*> Scene::load(std::string const
 		// Fill the two maps created above
 		for (uint32_t i = 0; i < meshes.size(); i++) {
 			if (valid_range(meshes[i].name_start, meshes[i].name_end)) {
-				BlenderTransform btrans = transforms[meshes[i].hierarchy_ref];
-				printf("Found Transform for mesh...:\n");
-				print_blender_transform(btrans);
+				BlenderTransform btrans = transforms[meshes[i].hierarchy_ref];\
 
 				std::string name = get_blendermesh_name(meshes[i]);
 				// Create new transform
@@ -372,7 +364,6 @@ std::unordered_map<std::string, Scene::Transform*> Scene::load(std::string const
 			transform->scale = btrans.scale;
 			// Add the camera to the scene since we dont attach objects
 			new_camera(transform);
-			//camera->fovy = cameras[i].fov_scale;
 
 
 			bool inserted = false;

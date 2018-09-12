@@ -34,7 +34,7 @@ class FileType:
 		self.magic = magic
 		self.vertex_bytes = 0
 		self.vertex_bytes += 3 * 4
-		self.vertex_bytes += 3 * 4
+		#self.vertex_bytes += 3 * 4
 		self.tri_bytes = 3 * 4
 
 
@@ -107,6 +107,20 @@ for obj in bpy.data.objects:
 	index += struct.pack('I', tri_count) # Add the index of the start position for the triangles for this mesh
 	#...count will be written below
 
+
+	# Export all the vertices in the mesh as one contiguous mass
+	for vert in mesh.vertices:
+		vert_data += struct.pack('3f', vert.co[0], vert.co[1], vert.co[2])
+	# increment the number of vertices
+	vertex_count += len(mesh.vertices)
+	
+	# Export the triangles
+	for poly in mesh.polygons:
+		tri_data += struct.pack('3I', poly.vertices[0], poly.vertices[1], poly.vertices[2])	
+	# increment the count of triangles
+	tri_count += len(mesh.polygons)
+
+	'''
 	#write the mesh triangles:
 	for poly in mesh.polygons:
 		# Check that polys only have three verts
@@ -122,10 +136,11 @@ for obj in bpy.data.objects:
 			for x in loop.normal:
 				vert_data += struct.pack('f', x)
 			# For each index in the polygon add its vertex index to the tri data
-			tri_data += struct.pack('I', loop.vertex_index)
+			tri_data += struct.pack('I', poly.vertices[i])
 	# Increment the counts
 	vertex_count += len(mesh.polygons) * 3
 	tri_count += len(mesh.polygons)
+	'''
 
 
 	index += struct.pack('I', vertex_count) #vertex_end

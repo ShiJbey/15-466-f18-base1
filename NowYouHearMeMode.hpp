@@ -53,7 +53,13 @@ namespace NowYouHearMe
         Scene::Camera *camera = nullptr;
 
         Scene::Object *monster = nullptr;
+        Scene::Transform *monster_trans = nullptr;
+        const float MONSTER_GROWL_INTERVAL = 4.0f;
+        float time_to_next_growl = MONSTER_GROWL_INTERVAL;
         Scene::Object *player = nullptr;
+
+        Scene::Transform* maze_exit = nullptr;
+        glm::vec3 player_start_position;
 
         std::shared_ptr< Sound::PlayingSample > monster_growl;
 
@@ -61,5 +67,11 @@ namespace NowYouHearMe
         const WalkMesh *walk_mesh = nullptr;
         WalkMesh::WalkPoint player_walk_point;
         WalkMesh::WalkPoint monster_walk_point;
+
+        bool caught_by_monster = false;
+        bool at_exit = false;
+        float GAME_OVER_RESET_TIME = 2.0f;
+        float reset_timer = GAME_OVER_RESET_TIME;
+
     };
 };

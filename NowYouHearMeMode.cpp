@@ -22,6 +22,8 @@
 #include <cstddef>
 #include <random>
 #include <unordered_map>
+#include <chrono>
+#include <thread>
 
 
 namespace NowYouHearMe
@@ -43,7 +45,6 @@ namespace NowYouHearMe
     Load< WalkMeshBuffer > walk_meshes(LoadTagDefault, [](){
         return new WalkMeshBuffer(data_path("nyhm.pnt"));
     });
-    
     
     
     NowYouHearMeMode::NowYouHearMeMode()
@@ -71,60 +72,70 @@ namespace NowYouHearMe
             );
         };
 
-
         std::unordered_map<std::string, Scene::Transform*> name_to_trans = scene.load(data_path("nyhm.scene"));
-
-        printf("Number of named transforms: %zd\n", name_to_trans.size());
         
         walk_mesh = walk_meshes->lookup("WalkMesh");
 
         auto it = name_to_trans.find("Walls");
         if (it != name_to_trans.end()) {
-            std::cout << "Wall Transform:" << std::endl;
-            print_transform(it->second);
             attach_object(it->second, "Walls");
         }
 
-        
         it = name_to_trans.find("Floor");
         if (it != name_to_trans.end()) {
-            std::cout << "Floor Transform" << std::endl;
-            print_transform(it->second);
             attach_object(it->second, "Floor");         
         }
 
-        
+        it = name_to_trans.find("WalkMesh");
+        if (it != name_to_trans.end()) {
+            // Turn on for debugging walkmesh
+            //attach_object(it->second, "WalkMesh");         
+        }
 
-        // Find the position of the player and place the camera there
+        it = name_to_trans.find("Exit");
+        if (it != name_to_trans.end()) {
+            maze_exit = it->second;
+        }
+
         it = name_to_trans.find("Player");
         if (it != name_to_trans.end()) {
-            std::cout<< "Player Transform" << std::endl;
-            print_transform(it->second);
             attach_object(it->second, "Player");
             player = scene.get_object("Player");
+            player_start_position = it->second->position;
+            
 
-            printf("Adjusting Player Position for Walk mesh\n");
             player_walk_point = walk_mesh->start(player->transform->position);
             glm::vec3 world_point = walk_mesh->world_point(player_walk_point);
-            // Adjust the player's position
-            printf("Originally Player at: <%f, %f, %f>\n", player->transform->position.x, player->transform->position.y, player->transform->position.z);
-            printf("Walk Places Player at: <%f, %f, %f>\n", world_point.x, world_point.y, world_point.z);
             player->transform->position.x = world_point.x;
             player->transform->position.y = world_point.y;
-            player->transform->position.z = world_point.z + 1.0f; // Keep the player 2 units above the ground
+            player->transform->position.z = world_point.z + 1.0f; // Keep the player above the ground
+
+            //printf("Player landed on triangle: <%d, %d, %d>\n", player_walk_point.triangle.x, player_walk_point.triangle.y, player_walk_point.triangle.z);
+            //printf("Its verts have the following coords:\n");
+            //printf("<%f, %f, %f>\n",walk_mesh->vertices[player_walk_point.triangle.x].x, walk_mesh->vertices[player_walk_point.triangle.x].y, walk_mesh->vertices[player_walk_point.triangle.x].z);
+            //printf("<%f, %f, %f>\n",walk_mesh->vertices[player_walk_point.triangle.y].x, walk_mesh->vertices[player_walk_point.triangle.y].y, walk_mesh->vertices[player_walk_point.triangle.y].z);
+            //printf("<%f, %f, %f>\n",walk_mesh->vertices[player_walk_point.triangle.z].x, walk_mesh->vertices[player_walk_point.triangle.z].y, walk_mesh->vertices[player_walk_point.triangle.z].z);
+
+            
+            // Adjust the player's position
+            //printf("Originally Player at: <%f, %f, %f>\n", player->transform->position.x, player->transform->position.y, player->transform->position.z);
+            //printf("Walk Places Player at: <%f, %f, %f>\n", world_point.x, world_point.y, world_point.z); 
         }
 
         
         it = name_to_trans.find("Monster");
         if (it != name_to_trans.end()) {
+            monster_trans = it->second;
+            
+            /* Debugging the monster's position
             attach_object(it->second, "Monster");
             monster = scene.get_object("Monster");
-
-            monster_walk_point = walk_mesh->start(monster->transform->position);
+            monster_walk_point = walk_mesh->start(monster_trans->position);
             glm::vec3 world_point = walk_mesh->world_point(monster_walk_point);
-            monster->transform->position.x = world_point.x;
-            monster->transform->position.y = world_point.y;
-            monster->transform->position.z = world_point.z + 1.0f; // Keep the player 2 units above the ground
+            monster_trans->position.x = world_point.x;
+            monster_trans->position.y = world_point.y;
+            monster_trans->position.z = world_point.z + 1.0f; // Keep the player 2 units above the ground
+            */
         }
 
 
@@ -132,8 +143,9 @@ namespace NowYouHearMe
         camera->transform->set_parent(player->transform);
         camera->transform->position.z += 1.0f;
 
-    
-        std::cout << "So are we good?" <<std::endl;
+        //std::cout << "End Mode Creation" << std::endl;
+        monster_growl = sample_growl->play(monster_trans->position - player->transform->position, 1.0f, Sound::Once);
+
     }
 
     NowYouHearMeMode::~NowYouHearMeMode()
@@ -192,6 +204,15 @@ namespace NowYouHearMe
                     * glm::angleAxis(yaw, glm::vec3(0.0f, 1.0f, 0.0f))
                     * glm::angleAxis(pitch, glm::vec3(1.0f, 0.0f, 0.0f))
                 );
+
+                /* Playing around with different ways to rotate
+                player->transform->rotation = glm::normalize(
+                    player->transform->rotation
+                    * glm::angleAxis(yaw, glm::vec3(0.0f, 0.0f, 1.0f))
+                    //* glm::angleAxis(pitch, glm::vec3(1.0f, 0.0f, 0.0f))
+                );
+                */
+
                 return true;
             }
         }
@@ -200,56 +221,62 @@ namespace NowYouHearMe
 
     void NowYouHearMeMode::update(float elapsed)
     {
-        // Check end-of-game conditions
-        {
-            glm::vec3 distance_to_monster = player->transform->position - monster->transform->position;
+        
+        { // Check end-of-game conditions
+            if (caught_by_monster || at_exit) {
+                reset_timer -= elapsed;
+                if (reset_timer <= 0) {
+                    caught_by_monster = false;
+                    at_exit = false;
+                    std::cout << " === GAME OVER ===\nClosing game ..." << std::endl;
+                    Mode::set_current(nullptr);
+                }
+                else {
+                    return;
+                }                
+            }
 
-            if(distance_to_monster.length() < 1.0f) {
-                printf("GAME OVER\n");
+            glm::vec3 distance_to_monster = monster_trans->position - player->transform->position;
+            caught_by_monster = glm::length(distance_to_monster) < 1.0f;
+
+            glm::vec3 distance_to_exit = maze_exit->position - player->transform->position;
+            at_exit = glm::length(distance_to_exit) < 1.25f;
+        }
+
+        { // Update the players position
+            glm::mat3 directions = glm::mat3_cast(camera->transform->rotation);
+
+            float move_speed = 5.0f;
+
+            glm::vec3 step(0.0f);
+            if (controls.right)
+                step = directions[0];
+            if (controls.left) 
+                step = -1.0f * directions[0];
+            if (controls.backward)
+                step = directions[2];
+            if (controls.forward)
+                step = -1.0f * directions[2];
+
+            step = step * move_speed * elapsed;
+            
+            if (glm::length(step) > 0.0f) {
+                walk_mesh->walk(player_walk_point, step);
+                glm::vec3 world_point = walk_mesh->world_point(player_walk_point);
+
+                player->transform->position.x = world_point.x;
+                player->transform->position.y = world_point.y;
+                player->transform->position.z = world_point.z + 1.0f; // Keep the player above the ground
             }
         }
-
-        glm::mat3 directions = glm::mat3_cast(camera->transform->rotation);
-
-        /*
-        float amt = 5.0f * elapsed;
-        if (controls.right) player->transform->position += amt * directions[0];
-	    if (controls.left) player->transform->position -= amt * directions[0];
-	    if (controls.backward) player->transform->position += amt * directions[2];
-	    if (controls.forward) player->transform->position -= amt * directions[2];
-        */
-
-        float move_speed = 1.0f;
-
-        glm::vec3 step(0.0f);
-        if (controls.right)
-            step = directions[0];
-        if (controls.left) 
-            step = -1.0f * directions[0];
-        if (controls.backward)
-            step = directions[2];
-        if (controls.forward)
-            step = -1.0f * directions[2];
-
-        step = step * move_speed * elapsed;
         
-        if (step.length() > 0) {
-
-            //player->transform->position += step;
-            //printf("Player Wants to move to: <%f, %f, %f>\n", player->transform->position.x, player->transform->position.y, player->transform->position.z);
-            walk_mesh->walk(player_walk_point, step);
-            glm::vec3 world_point = walk_mesh->world_point(player_walk_point);
-            printf("Walk Mesh Places at Player at: <%f, %f, %f>\n", world_point.x, world_point.y, world_point.z);
-
-            player->transform->position.x = world_point.x;
-            player->transform->position.y = world_point.y;
-            player->transform->position.z = world_point.z + 1.0f; // Keep the player 2 units above the ground
-
-        }
-
-        // Update the monster's position and growl_timer
-        {
-
+        { // Update the monster's position and growl_timer
+            time_to_next_growl -= elapsed;
+            if (time_to_next_growl <= 0)
+            {
+                monster_growl = sample_growl->play(monster_trans->position - player->transform->position, 1.0f, Sound::Once);
+                time_to_next_growl = MONSTER_GROWL_INTERVAL;
+            }
         }
     }
 
@@ -280,15 +307,28 @@ namespace NowYouHearMe
         if (Mode::current.get() == this) {
             glDisable(GL_DEPTH_TEST);
             std::string message;
-            if (mouse_captured) {
-                message = "ESCAPE TO UNGRAB MOUSE * WASD MOVE";
+            if (at_exit) {
+                message = "YOU LIVE";
+                float height = 0.1f;
+                float width = text_width(message, height);
+                draw_text(message, glm::vec2(-0.5f * width,-0.5f), height, glm::vec4(0.0f, 1.0f, 0.0f, 1.0f));
+            } else if (caught_by_monster) {
+                message = "YOU DIED";
+                float height = 0.1f;
+                float width = text_width(message, height);
+                draw_text(message, glm::vec2(-0.5f * width,-0.5f), height, glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
             } else {
-                message = "CLICK TO GRAB MOUSE * ESCAPE QUIT";
+                if (mouse_captured) {
+                    message = "ESCAPE TO UNGRAB MOUSE * WASD MOVE";
+                } else {
+                    message = "CLICK TO GRAB MOUSE * ESCAPE QUIT";
+                }
+                float height = 0.06f;
+                float width = text_width(message, height);
+                draw_text(message, glm::vec2(-0.5f * width,-0.99f), height, glm::vec4(0.0f, 0.0f, 0.0f, 0.5f));
+                draw_text(message, glm::vec2(-0.5f * width,-1.0f), height, glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
             }
-            float height = 0.06f;
-            float width = text_width(message, height);
-            draw_text(message, glm::vec2(-0.5f * width,-0.99f), height, glm::vec4(0.0f, 0.0f, 0.0f, 0.5f));
-            draw_text(message, glm::vec2(-0.5f * width,-1.0f), height, glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
+            
 
             glUseProgram(0);
 	    }
